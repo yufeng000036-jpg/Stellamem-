@@ -1,0 +1,29 @@
+# 排除真实配置与数据
+config.json
+.env
+*.bak
+*.bak-*
+*.log
+
+# 排除安装器运行时产物（含真实路径，绝不进版本库）
+setup-out/
+
+# 排除临时脚本（_ 开头）
+_*.py
+
+# 排除真实记忆目录
+memories/
+.stellamem/
+
+# 排除 benchmark 真实数据（samples / golden / results 一律不传）
+benchmark/samples/
+benchmark/golden/
+benchmark/results/
+
+# 排除 Python 缓存
+__pycache__/
+*.pyc
+
+# 排除 IDE
+.vscode/
+.idea/

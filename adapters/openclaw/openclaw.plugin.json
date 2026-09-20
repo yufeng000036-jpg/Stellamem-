@@ -1,0 +1,20 @@
+{
+  "id": "stellamem-adapter",
+  "name": "Stellamem Adapter",
+  "description": "把记忆库的 core/ 记忆，通过 before_prompt_build hook 结构性注入 AI 上下文。",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "coreDir": {
+        "type": "string"
+      }
+    }
+  }
+}

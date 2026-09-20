@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星忆 · Stellamem</title>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --bg2: #0f1524;
+    --panel: #141b2e;
+    --panel2: #1a2338;
+    --line: rgba(255,255,255,0.08);
+    --text: #e6ebf5;
+    --muted: #8b94a8;
+    --accent: #6c8cff;
+    --accent2: #8f6cff;
+    --teal: #2dd4bf;
+    --gold: #f5c86e;
+    --rose: #f472b6;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: rgba(108,140,255,0.35); }
+
+  /* 背景光晕 */
+  .glow {
+    position: fixed; top:0; left:0; right:0; bottom:0; z-index:-1;
+    background:
+      radial-gradient(800px 500px at 15% -5%, rgba(108,140,255,0.16), transparent 60%),
+      radial-gradient(700px 500px at 90% 10%, rgba(143,108,255,0.14), transparent 60%),
+      radial-gradient(600px 600px at 50% 110%, rgba(45,212,191,0.08), transparent 60%);
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+
+  /* ===== Hero ===== */
+  header.hero { padding: 96px 0 64px; text-align:center; position:relative; }
+  .badge {
+    display:inline-block; padding: 6px 16px; border-radius: 999px;
+    font-size: 13px; letter-spacing: 0.5px; color: var(--accent);
+    background: rgba(108,140,255,0.12); border: 1px solid rgba(108,140,255,0.28);
+    margin-bottom: 28px;
+  }
+  h1 {
+    font-size: clamp(40px, 7vw, 68px);
+    font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(120deg, #ffffff 0%, #c3d0ff 45%, #8f6cff 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .subtitle-en {
+    font-size: clamp(15px, 2vw, 18px); color: var(--muted);
+    letter-spacing: 0.6px; margin-bottom: 24px; font-weight: 400;
+  }
+  .tagline {
+    font-size: clamp(18px, 2.6vw, 24px); color: var(--text);
+    max-width: 720px; margin: 0 auto 20px; font-weight: 500;
+  }
+  .author {
+    font-size: 14px; color: var(--muted);
+  }
+  .author b { color: var(--text); font-weight: 600; }
+
+  /* 卡片通用 */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 26px;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(108,140,255,0.35);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+
+  section { padding: 64px 0; }
+  .sec-title {
+    font-size: clamp(26px, 4vw, 36px); font-weight: 700;
+    text-align:center; margin-bottom: 12px; letter-spacing:-0.3px;
+  }
+  .sec-desc {
+    text-align:center; color: var(--muted); font-size: 16px;
+    max-width: 620px; margin: 0 auto 44px;
+  }
+
+  /* ===== 痛点 ===== */
+  .pain-grid {
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+  }
+  .pain {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px; position: relative; overflow:hidden;
+  }
+  .pain .n { font-size: 13px; color: var(--accent); font-weight:700; margin-bottom:8px; }
+  .pain h3 { font-size: 18px; margin-bottom: 6px; }
+  .pain p { font-size: 14px; color: var(--muted); }
+
+  /* ===== 功能 ===== */
+  .feat-grid {
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+  }
+  .feat .icon { font-size: 32px; margin-bottom: 12px; }
+  .feat h3 { font-size: 18px; margin-bottom: 6px; }
+  .feat p { font-size: 14px; color: var(--muted); }
+
+  /* ===== 流程图 ===== */
+  .flow {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 36px 28px; text-align:center;
+  }
+  .flow-line {
+    display:flex; flex-wrap:wrap; justify-content:center; align-items:center;
+    gap: 10px; margin-bottom: 18px;
+  }
+  .flow-box {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 20px; font-size: 15px; font-weight:600;
+  }
+  .flow-box.hl { border-color: rgba(108,140,255,0.45); background: rgba(108,140,255,0.10); }
+  .flow-arrow { color: var(--accent); font-size: 20px; font-weight:700; }
+  .flow-note { font-size: 14px; color: var(--muted); margin-top: 16px; }
+
+  /* ===== 技术亮点 ===== */
+  .tech-list {
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px;
+  }
+  .tech { display:flex; gap: 14px; align-items:flex-start; }
+  .tech .t-icon { font-size: 26px; flex-shrink:0; }
+  .tech h3 { font-size: 17px; margin-bottom: 4px; }
+  .tech p { font-size: 14px; color: var(--muted); }
+
+  /* ===== 愿景 ===== */
+  .vision {
+    background: linear-gradient(135deg, rgba(108,140,255,0.12), rgba(143,108,255,0.10));
+    border: 1px solid rgba(108,140,255,0.3); border-radius: 20px;
+    padding: 48px 32px; text-align:center;
+  }
+  .vision .quote {
+    font-size: clamp(18px, 2.6vw, 24px); font-weight: 500; line-height: 1.8;
+    color: var(--text); max-width: 760px; margin: 0 auto 28px;
+  }
+  .vision .belief { font-size: 16px; color: var(--muted); line-height: 1.9; max-width: 660px; margin: 0 auto; }
+
+  /* ===== 页脚 ===== */
+  footer {
+    text-align:center; padding: 48px 0 64px; color: var(--muted); font-size: 14px;
+    border-top: 1px solid var(--line); margin-top: 40px;
+  }
+
+  /* 动效 */
+  .fade-in { opacity:0; transform: translateY(20px); animation: fadeIn 0.7s ease forwards; }
+  @keyframes fadeIn { to { opacity:1; transform: translateY(0); } }
+  .d1 { animation-delay: 0.1s; } .d2 { animation-delay: 0.2s; }
+  .d3 { animation-delay: 0.3s; } .d4 { animation-delay: 0.4s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fade-in { animation: none; opacity:1; transform:none; }
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<header class="hero wrap">
+  <div class="badge fade-in">Open Source · Local-first · Markdown-native</div>
+  <h1 class="fade-in d1">星忆</h1>
+  <div class="subtitle-en fade-in d1">Stellamem</div>
+  <p class="tagline fade-in d2">让 AI 的长期记忆像代码一样被编译、审查、版本化、回滚</p>
+  <p class="subtitle-en fade-in d2" style="color:#9aa4bc">Git-native · Auditable · Local-first Memory for AI Agents</p>
+  <p class="author fade-in d3">作者 <b>宇枫</b> · 2026</p>
+</header>
+
+<!-- 痛点 -->
+<section class="wrap">
+  <h2 class="sec-title fade-in">它解决什么问题</h2>
+  <p class="sec-desc fade-in">AI 助手越来越强，但它们的"记忆"却常常一团糟。</p>
+  <div class="pain-grid">
+    <div class="pain fade-in d1"><div class="n">01</div><h3>记忆腐烂</h3><p>越积越乱，前后自相矛盾，久了连它自己都理不清。</p></div>
+    <div class="pain fade-in d1"><div class="n">02</div><h3>记忆黑盒</h3><p>数据库里到底存了什么，你看不到、也改不动。</p></div>
+    <div class="pain fade-in d2"><div class="n">03</div><h3>说了记不住</h3><p>聊过的重要事，转头就忘，反复重来。</p></div>
+    <div class="pain fade-in d2"><div class="n">04</div><h3>乱记错记</h3><p>一句气话被当成永久立场，错误被反复强化。</p></div>
+    <div class="pain fade-in d3"><div class="n">05</div><h3>隐私外泄</h3><p>记忆放在云端，你无法掌控它的去向。</p></div>
+  </div>
+</section>
+
+<!-- 功能 -->
+<section class="wrap">
+  <h2 class="sec-title fade-in">它能干嘛</h2>
+  <p class="sec-desc fade-in">从"消化"到"注入"，一条完整的记忆生产链。</p>
+  <div class="feat-grid">
+    <div class="card feat fade-in d1"><div class="icon">🧠</div><h3>自动消化</h3><p>日记 → 结构化记忆，拆成偏好 / 决策 / 教训 / 项目 / 身份。</p></div>
+    <div class="card feat fade-in d1"><div class="icon">🔀</div><h3>智能路由</h3><p>按类型去重、分派到对应文件，不乱堆。</p></div>
+    <div class="card feat fade-in d1"><div class="icon">⚖️</div><h3>冲突治理</h3><p>冲突日志 + 版本链，记忆可追溯、可还原。</p></div>
+    <div class="card feat fade-in d2"><div class="icon">🛡️</div><h3>安全防护</h3><p>防注入、防反话、防临时情绪，气话不会变成永久立场。</p></div>
+    <div class="card feat fade-in d2"><div class="icon">🔍</div><h3>可解释可回滚</h3><p>memory explain / history / rollback，每条记忆都有来处。</p></div>
+    <div class="card feat fade-in d2"><div class="icon">📊</div><h3>量化评测</h3><p>benchmark 有把尺子，改一次测一次，不靠感觉。</p></div>
+    <div class="card feat fade-in d3"><div class="icon">💉</div><h3>自动注入</h3><p>让 AI 一启动就"记得"——Adapter 把记忆喂回上下文。</p></div>
+    <div class="card feat fade-in d3"><div class="icon">📓</div><h3>自动日记</h3><p>聊完自动落盘，不漏一条。</p></div>
+    <div class="card feat fade-in d3"><div class="icon">🔒</div><h3>本地优先</h3><p>本地模型编译，隐私不出门。</p></div>
+  </div>
+</section>
+
+<!-- 流程 -->
+<section class="wrap">
+  <h2 class="sec-title fade-in">怎么工作</h2>
+  <p class="sec-desc fade-in">一条单向管道，每一步都可查、可回退。</p>
+  <div class="flow fade-in">
+    <div class="flow-line">
+      <div class="flow-box">日记 / 对话</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box hl">编译器（提取 + 判断）</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">结构化记忆（Markdown）</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box hl">Adapter 注入</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">AI 读到</div>
+    </div>
+    <div class="flow-note">Markdown 是唯一真相，SQLite 只是可重建的缓存。</div>
+  </div>
+</section>
+
+<!-- 技术亮点 -->
+<section class="wrap">
+  <h2 class="sec-title fade-in">技术亮点</h2>
+  <div class="tech-list">
+    <div class="tech fade-in d1"><div class="t-icon">📄</div><div><h3>白盒</h3><p>一切记忆都是 Markdown，人能读、能改、能迁移。</p></div></div>
+    <div class="tech fade-in d1"><div class="t-icon">🔌</div><div><h3>框架无关</h3><p>核心编译器不绑任何 AI 框架，OpenClaw 只是 Adapter #1。</p></div></div>
+    <div class="tech fade-in d2"><div class="t-icon">⚙️</div><div><h3>本地模型</h3><p>Qwen3-4B 即可跑，可升级到更大模型。</p></div></div>
+    <div class="tech fade-in d2"><div class="t-icon">📈</div><div><h3>实测数据</h3><p>benchmark 召回 0.705，False Write = 0。</p></div></div>
+  </div>
+</section>
+
+<!-- 愿景 -->
+<section class="wrap">
+  <h2 class="sec-title fade-in">愿景</h2>
+  <div class="vision fade-in">
+    <div class="quote">"一个真实用户每天用 AI，连续 90 天、几千次交互后，<br>系统仍能准确回答：我现在相信什么、为什么相信、<br>以前相信什么、什么时候变的、依据是什么。"</div>
+    <div class="belief">核心信念：记忆属于用户，不属于某个 AI。<br>AI 可以换、模型可以换、框架可以换，<br>但 <code style="color:var(--accent)">memories/</code> 还在那里。</div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">Made by <b style="color:var(--text)">宇枫</b> · 2026</div>
+</footer>
+
+</body>
+</html>

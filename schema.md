@@ -1,0 +1,81 @@
+# 记忆 Schema（Claim 规范）
+
+> 核心原则：**存 Claim，不存句子。**
+> 记忆的权威形态是结构化的原子声明（Claim），Markdown 是它的可读呈现。
+> 一条人类自然语言 → 先编译成 Claim → 再由 Python 决定写进哪个 Markdown 文件。
+
+## 一、Memory Types（记忆类型）
+
+| 类型 | 含义 | 例 |
+|---|---|---|
+| preference | 用户喜欢/不喜欢的长期倾向 | 「回复简洁」 |
+| decision | 某个选择 + 理由 + 状态 | 「某工具 用 vX.Y.Z」 |
+| lesson | 踩过的坑 + 原因 + 方案 | 「yt-dlp 被 412 拦截」 |
+| project | 进行中的项目状态 | 「视频剪辑项目」 |
+| fact | 客观信息 | 「用户是自由职业者」 |
+| relationship | 人与人的关系 | 「好兄弟是游戏搭子」 |
+| procedure | 可复用的操作步骤 | 「音乐下载方法」 |
+
+## 二、Claim 字段（以 preference 为例）
+
+```yaml
+kind: preference        # 记忆类型
+subject: user           # 主语（谁）
+predicate: response_length   # 谓语（哪个维度）
+value: concise          # 值
+scope: global           # 作用域
+confidence: 0.94        # 置信度 0~1
+evidence: "最近发现我越来越喜欢回答短一点"   # 原始证据（溯源）
+source: daily/2026-09-20.md                # 来源文件
+```
+
+## 三、稳定 ID 规范
+
+格式：`{kind缩写}.{subject}.{predicate}`
+
+- `pref.user.response_length` → 「用户回复长度偏好」
+- `dec.tool.version` → 「工具版本决策」
+- `lesson.platform.download-limit` → 「某平台下载限制教训」
+
+**作用**：同一个语义的不同表述，编译后落到同一个稳定 ID，语义去重退化成 `subject + predicate` 的字段比对。
+
+## 四、Relation Types（7 + 1 种关系）
+
+| 关系 | 含义 | 例 |
+|---|---|---|
+| NEW | 全新，无关联 | 第一次记录某偏好 |
+| DUPLICATE | 完全重复 | 同一句话又说一遍 |
+| REINFORCES | 强化已有（证据 +1） | 再次确认同一偏好 |
+| REFINES | 细化（后者是前者的子集） | 深圳 → 深圳南山 |
+| COMPATIBLE | 兼容并存 | 出差杭州 ≠ 搬家 |
+| SUPERSEDES | 取代（新覆盖旧） | 搬到杭州，覆盖深圳 |
+| CONTRADICTS | 矛盾 | vX.1.0 vs vX.2.0 |
+| UNCERTAIN | 不确定，挂起 | 无法判断关系 |
+
+**关键**：「住深圳」vs「家在深圳南山」不是 conflict，是 **REFINES**；「搬到杭州」才是 **SUPERSEDES**。冲突日志（conflict-log.md）只承接 CONTRADICTS 这一种。
+
+## 五、自动写权限（分级）
+
+| 目录 | 自动写权限 | 说明 |
+|---|---|---|
+| episodic/ | 宽松 | 日记索引、月度摘要可自动写 |
+| long-term/projects.md | 中等 | 项目状态可自动更新 |
+| long-term/lessons.md | 中等 | 新教训可自动追加 |
+| semantic/ | 中等 | 画像可自动整合 |
+| core/preferences.md | 严格 | 仅高置信度（≥0.95）自动写 |
+| core/user-core.md | 非常严格 | 几乎不自动写，人工确认 |
+| core/identity.md | **禁止** | 防止自我强化环 |
+
+## 六、置信度阈值（可校准）
+
+- **≥ 0.95**：自动写入对应文件
+- **0.75 ~ 0.95**：写入 memory-inbox.md 待确认
+- **< 0.75**：只保留在 daily/episodic，不进长期记忆
+
+---
+
+## 记忆宪法（Constitution）
+
+1. **Canonical owner 唯一**：每个事实只有一个权威文件，不允许多处并存。
+2. **Raw source 不改**：原始日记/对话只读，永不修改、永不删除。
+3. **派生可重建**：所有派生记忆必须可从 raw source 重建，删掉可再生成。
