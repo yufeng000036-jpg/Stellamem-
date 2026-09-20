@@ -27,7 +27,19 @@ python setup.py check
 
 ---
 
-## 2. 一键安装（推荐路径）
+## 2. 两条安装路径（先选一条）
+
+| 路径 | 适合谁 | 装什么 | 能得到什么 |
+|------|--------|--------|-----------|
+| **A. 只装 Compiler** | 非 OpenClaw 用户（Claude Code / Cursor / 自研 Agent） | `compiler/` + `templates/` + `config.json` | 日记 → Claim → markdown 记忆，完整的编译侧能力 |
+| **B. Compiler + Adapter** | OpenClaw 用户 | 上者 + `hooks/`（自动日记）+ `adapters/openclaw/`（自动注入） | 全自动闭环：对话自动落盘、编译、注入回上下文 |
+
+> Compiler（核心）**完全不依赖 OpenClaw**，两条路径都能跑 `extract.py` → `sleep_purify.py` → 生成 markdown。
+> 区别只在「日记怎么来」和「记忆怎么回注」——这两个恰好是 OpenClaw 专用的，见第 6 节自己实现。
+
+---
+
+## 2b. 路径 B：一键安装（OpenClaw 用户，推荐）
 
 ```bash
 python setup.py install --yes --ai-name <AI名字> --mem-root <记忆根目录> --merge-openclaw
@@ -36,8 +48,28 @@ python setup.py install --yes --ai-name <AI名字> --mem-root <记忆根目录> 
 参数说明：
 - `--ai-name`：AI 名字（日记以谁的第一人称写），如 `小助手`
 - `--mem-root`：记忆根目录（绝对路径），如 `D:/my-memory`；不填则用默认 `~/.stellamem`
-- `--merge-openclaw`：自动备份并合并 `openclaw.json`（只追加 keys，不覆盖已有内容）
+- `--model-url`：OpenAI 兼容模型服务地址，如 `http://127.0.0.1:11434`（不填则自动探测 8081/1234/11434）
+- `--merge-openclaw`：自动备份并合并 `openclaw.json`（**只追加 keys，不覆盖已有字段**；冲突字段保留你的原值并写入 `setup-out/openclaw.merge-conflicts.md`）
 - `--yes`：跳过交互确认
+
+### 路径 A：只装 Compiler（非 OpenClaw 用户）
+
+不需要跑 `setup.py install`（它主要为 OpenClaw 铺 hook/adapter）。手工三步：
+
+```bash
+# 1. 配好 config.json（放在仓库根目录，或由 STELLAMEM_CONFIG 环境变量指定）
+cp config.example.json config.json   # 然后编辑：memories_root / server_url
+
+# 2. 建记忆目录骨架
+mkdir -p <memories_root>/{core,long-term,semantic,system,daily}
+cp -r templates/* <memories_root>/    # 空模板
+
+# 3. 启动模型服务后，直接跑编译
+python compiler/extract.py <日记文件>            # 单篇 → Claim JSON
+python compiler/sleep_purify.py --mode observe   # 全量 → inbox（安全，不写正式记忆）
+```
+
+写入侧（日记怎么来）和注入侧（记忆怎么回注）需自己实现，参考第 6 节。
 
 `setup.py install` 会**自动完成以下全部动作**（幂等，重复跑安全）：
 
@@ -54,6 +86,7 @@ python setup.py install --yes --ai-name <AI名字> --mem-root <记忆根目录> 
 | 9 | 自检 | 跑一遍 `python compiler/memory.py doctor` |
 
 > ⚠️ **重要**：安装器**只改拷贝到目标位置的副本，绝不改写仓库源文件**。源文件始终保持模板状态（占位符），可重复分发、重复安装。
+> ⚠️ **config.json 位置**：统一放在**仓库根目录**（`STELLAMEM_CONFIG` 环境变量可覆盖）。`compiler/config_loader.py` 按此顺序查找：环境变量 → 仓库根 → compiler/ 旧位置（兼容）。
 
 ---
 
@@ -146,7 +179,7 @@ python compiler/sleep_purify.py --mode observe
 2. **hook 放 `~/.openclaw/hooks/`，不是 `extensions/`**。放错目录静默失效。
 3. **必须开总开关**：`hooks.internal.enabled = true`，没有这行连内置 hook 都不加载。
 4. **归档文件读取**：`/new` 后旧 session 改名 `xxx.jsonl.reset.<时间戳>`，读会话必须用 `includes(".jsonl")` 而非 `endsWith(".jsonl")`，否则漏读历史。
-5. **`config_loader` 找不到 config.json 会直接退出**：先把 `config.example.json` 拷成 `config.json` 填好，再跑 compiler。
+5. **`config_loader` 找不到 config.json 会直接退出**：先把 `config.example.json` 拷成**仓库根目录**的 `config.json` 填好，再跑 compiler。也可用环境变量 `STELLAMEM_CONFIG` 指向任意位置的配置文件。
 6. **模型端口两处配置**：`config.json` 的 `server_url` 和 `handler.js` 里的 `MODEL_URL` 是两套，改一处不够。
 7. **Windows 编码**：脚本已避免 emoji（GBK 控制台会崩）。自己加输出时也注意。
 8. **`memory.py rollback` 默认是干跑**：必须加 `--yes` 才真恢复。

@@ -176,30 +176,58 @@ def detect_model_service(url):
 
 
 # ============ openclaw.json 自动合并 ============
-def deep_merge(base, overlay):
-    """深度合并 overlay 到 base（就地修改 base，返回 base）。
+def deep_merge(base, overlay, path="", conflicts=None):
+    """深度合并 overlay 到 base（就地修改 base，返回 base）——「只追加，不覆盖」。
 
-    规则：
+    规则（安全优先）：
       - 两个都是 dict → 递归合并
       - 两个都是 list → 去重追加（保留 base 原有元素，overlay 新元素追加到末尾）
-      - 否则 → overlay 覆盖 base
+      - base 里【缺】该 key → 补上 overlay 的值
+      - base 里【已有】该 key 且值不同 → **保留 base 原值不动**，
+        把 (路径, 原值, 拟加值) 记入 conflicts 列表，交给用户手动决定
+      - base 里已有且值相同 → 什么都不做
+
+    conflicts 为 list 时，冲突项以 dict 形式追加进去。
+    调用方据此生成 diff 报告；默认（conflicts=None）静默收集，不写 base。
     """
+    if conflicts is None:
+        conflicts = []
     for key, val in overlay.items():
-        if key in base and isinstance(base[key], dict) and isinstance(val, dict):
-            deep_merge(base[key], val)
-        elif key in base and isinstance(base[key], list) and isinstance(val, list):
+        cur_path = f"{path}.{key}" if path else key
+        if key not in base:
+            # 缺失 → 补上（dict/list 也直接带上，副本语义由 json 序列化保证）
+            if isinstance(val, dict):
+                base[key] = {}
+                deep_merge(base[key], val, cur_path, conflicts)
+            elif isinstance(val, list):
+                base[key] = []
+                deep_merge(base[key], val, cur_path, conflicts)
+            else:
+                base[key] = val
+        elif isinstance(base[key], dict) and isinstance(val, dict):
+            deep_merge(base[key], val, cur_path, conflicts)
+        elif isinstance(base[key], list) and isinstance(val, list):
             for item in val:
                 if item not in base[key]:
                     base[key].append(item)
         else:
-            base[key] = val
+            # 键已存在且类型/值不同 → 绝不覆盖，只记冲突
+            if base[key] != val:
+                conflicts.append({
+                    "path": cur_path,
+                    "existing": base[key],
+                    "suggested": val,
+                    "action": "kept-existing (未覆盖，请手动决定)",
+                })
     return base
 
 
 def merge_openclaw_config(oc_root, snippet):
-    """备份 openclaw.json 后，把 snippet 合并进去（只追加，不覆盖已有内容）。
+    """备份 openclaw.json 后，把 snippet 「只追加不覆盖」地合并进去。
 
-    返回 (备份路径, 合并后的 config) 或抛异常。
+    已有字段一律保留；缺失字段补齐；冲突字段不写、记入 diff 报告。
+
+    返回 (备份路径, 合并后的 config, conflicts) 或抛异常。
     """
     cfg_path = os.path.join(oc_root, "openclaw.json")
     if not os.path.exists(cfg_path):
@@ -213,14 +241,15 @@ def merge_openclaw_config(oc_root, snippet):
     with open(cfg_path, encoding="utf-8") as fh:
         cfg = json.load(fh)
 
-    # 3. 合并
-    deep_merge(cfg, snippet)
+    # 3. 只追加不覆盖地合并（冲突只记录，不改动 base）
+    conflicts = []
+    deep_merge(cfg, snippet, "", conflicts)
 
     # 4. 写回
     with open(cfg_path, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(cfg, fh, ensure_ascii=False, indent=2)
 
-    return bak_path, cfg
+    return bak_path, cfg, conflicts
 
 
 # ============ check ============
@@ -307,20 +336,30 @@ def replace_placeholder(text, old, new):
     return text.replace(old, new), True
 
 
-def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_openclaw=False, tz_offset=None):
+def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_openclaw=False, tz_offset=None, model_url=None, oc_root_override=None):
     section("Stellamem 一键安装" + ("（干跑）" if dry_run else ""))
 
-    # ---- 1. 探测 ----
-    oc_root, oc_src = detect_openclaw_root()
+    # ---- 1. 探测（--oc-root 优先级最高，专为冷启动/测试；不传则探测真实环境）----
+    if oc_root_override:
+        oc_root = os.path.abspath(oc_root_override)
+        oc_src = "命令行 --oc-root（隔离模式，不会碰真实 OpenClaw）"
+        if not os.path.isdir(oc_root):
+            info(f"OpenClaw 根目录（将创建）: {oc_root}")
+        else:
+            info(f"OpenClaw 根目录: {oc_root}")
+        info(f"          来源: {oc_src}")
+    else:
+        oc_root, oc_src = detect_openclaw_root()
+
     sess = detect_sessions_dir(oc_root) if oc_root else None
 
     if not oc_root:
         err("未探测到 OpenClaw 根目录，无法继续。")
-        err("请设置 OPENCLAW_HOME 环境变量，或手动编辑生成的文件。")
+        err("请设置 OPENCLAW_HOME 环境变量，或用 --oc-root <路径> 指定（测试推荐）。")
         if not yes:
             return 1
         oc_root = ""
-    else:
+    elif not oc_root_override:
         info(f"OpenClaw 根目录: {oc_root}")
 
     # ---- 2. 记忆根目录（命令行参数 > 交互询问 > 默认）----
@@ -351,6 +390,17 @@ def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_ope
         tz_offset = detect_tz_offset()
     info(f"时区偏移: UTC{'+' if float(tz_offset) >= 0 else ''}{tz_offset}")
 
+    # ---- 3c. 模型服务地址（命令行 --model-url > 探测到的服务 > 默认 8081）----
+    if not model_url:
+        for probe in ["http://127.0.0.1:8081", "http://127.0.0.1:1234", "http://127.0.0.1:11434"]:
+            if detect_model_service(probe):
+                model_url = probe
+                break
+    if not model_url:
+        model_url = "http://127.0.0.1:8081"
+    model_url = model_url.rstrip("/")
+    info(f"模型服务地址: {model_url}")
+
     actions = []
 
     # ---- 4. 创建记忆目录骨架 ----
@@ -375,7 +425,7 @@ def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_ope
         "scripts_root": HERE.replace("\\", "/"),
         "model_name": "<YOUR_MODEL_GGUF_PATH>",
         "llama_bin": (detect_llama_bin() or "").replace("\\", "/"),
-        "server_url": "http://127.0.0.1:8081",
+        "server_url": model_url,
         "daily_dir": mem_root.replace("\\", "/") + "/daily",
         "system_dir": mem_root.replace("\\", "/") + "/system",
         "core_dir": mem_root.replace("\\", "/") + "/core",
@@ -454,7 +504,7 @@ def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_ope
             path, pairs = arg
             print(f"    - [replace] {path}  （改写副本占位符，源文件不动）")
         elif kind == "merge-openclaw":
-            print(f"    - [merge-openclaw] 先备份 openclaw.json，再只追加 keys")
+            print(f"    - [merge-openclaw] 先备份 openclaw.json，再只追加 keys（冲突字段保留原值 + 记 diff）")
         else:
             print(f"    - [{kind}] {arg if isinstance(arg, str) else arg[0]}")
 
@@ -526,9 +576,31 @@ def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_ope
             elif kind == "merge-openclaw":
                 oc_root2, snip = arg
                 try:
-                    bak, cfg = merge_openclaw_config(oc_root2, snip)
+                    bak, cfg, conflicts = merge_openclaw_config(oc_root2, snip)
                     ok(f"已备份 openclaw.json → {os.path.basename(bak)}")
-                    ok("已合并 hooks / plugins / agents.defaults.memorySearch（未覆盖已有内容）")
+                    ok("已合并 hooks / plugins / agents.defaults.memorySearch（只追加，未覆盖已有字段）")
+                    if conflicts:
+                        warn(f"发现 {len(conflicts)} 处字段冲突：已保留你的原值，未写入。请手动决定：")
+                        for c in conflicts:
+                            print(f"        - {c['path']}")
+                            print(f"            保留: {json.dumps(c['existing'], ensure_ascii=False)[:120]}")
+                            print(f"            拟加: {json.dumps(c['suggested'], ensure_ascii=False)[:120]}")
+                        diff_path = os.path.join(HERE, "setup-out", "openclaw.merge-conflicts.md")
+                        try:
+                            os.makedirs(os.path.dirname(diff_path), exist_ok=True)
+                            with open(diff_path, "w", encoding="utf-8", newline="\n") as dfh:
+                                dfh.write("# openclaw.json 合并冲突（未自动写入）\n\n")
+                                dfh.write("以下字段你的配置里已存在且值不同，安装器**保持原值不变**，未做任何覆盖。\n")
+                                dfh.write("如需采用 Stellamem 的建议值，请手动修改并用候重启。\n\n")
+                                for c in conflicts:
+                                    dfh.write(f"## {c['path']}\n\n")
+                                    dfh.write(f"- 你的原值（已保留）：`{json.dumps(c['existing'], ensure_ascii=False)}`\n")
+                                    dfh.write(f"- Stellamem 建议值（未写入）：`{json.dumps(c['suggested'], ensure_ascii=False)}`\n\n")
+                            ok(f"冲突 diff 已写入 setup-out/openclaw.merge-conflicts.md")
+                        except OSError as e:
+                            warn(f"写冲突 diff 失败：{e}")
+                    else:
+                        ok("无字段冲突（你的已有配置全数保留）")
                     modified += 1
                 except Exception as e:
                     err(f"合并 openclaw.json 失败（已跳过，可手动合并 snippet）: {e}")
@@ -587,7 +659,11 @@ def build_parser():
     inst.add_argument("--ai-name", help="AI 名字（日记以谁的第一人称写）")
     inst.add_argument("--mem-root", help="记忆根目录（绝对路径）")
     inst.add_argument("--merge-openclaw", action="store_true",
-                      help="自动备份并合并 openclaw.json（只追加 keys，不覆盖已有内容）")
+                      help="自动备份并合并 openclaw.json（只追加 keys；冲突字段保留原值 + 写 diff 报告）")
+    inst.add_argument("--model-url", help="OpenAI 兼容模型服务地址，如 http://127.0.0.1:11434")
+    inst.add_argument("--oc-root",
+                      help="OpenClaw 根目录（默认探测真实 ~/.openclaw）；"
+                           "测试/冷启动请指向临时目录，如 --oc-root D:/tmp/.openclaw")
 
     return p
 
@@ -608,6 +684,8 @@ def main():
             ai_name=args.ai_name,
             mem_root=args.mem_root,
             merge_openclaw=args.merge_openclaw,
+            model_url=args.model_url,
+            oc_root_override=getattr(args, "oc_root", None),
         )
     err(f"未知命令：{args.cmd}")
     return 1

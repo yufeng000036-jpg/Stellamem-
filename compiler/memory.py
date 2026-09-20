@@ -73,16 +73,19 @@ def cmd_doctor():
     ]
     for label, rel in checks:
         p = os.path.join(ROOT, rel)
-        ok = os.path.exists(p)
-        print(("✔" if ok else "✘") + f" {label}: {'存在' if ok else '缺失'}")
+        exists = os.path.exists(p)
+        # 用 ASCII 标记，不用 ✔/✘ —— Windows GBK 控制台会 UnicodeEncodeError 崩溃
+        print(("[OK]  " if exists else "[MISS]") + f" {label}: {'存在' if exists else '缺失'}")
     print("-" * 40)
     print(f"inbox pending 条数: {count_pending()}")
     print(f"conflict-log 未裁决条数: {count_unresolved_conflicts()}")
     print(f"false-write-log 条数: {count_false_write()}")
     vc = count_version_chain()
     print(f"version-chain 条数: {vc if vc >= 0 else '解析失败'}")
-    daily = len([f for f in os.listdir(os.path.join(ROOT, "daily")) if f.endswith(".md")])
-    notes = len(os.listdir(os.path.join(ROOT, "notes")))
+    daily_dir_p = os.path.join(ROOT, "daily")
+    daily = len([f for f in os.listdir(daily_dir_p) if f.endswith(".md")]) if os.path.isdir(daily_dir_p) else 0
+    notes_dir_p = os.path.join(ROOT, "notes")
+    notes = len(os.listdir(notes_dir_p)) if os.path.isdir(notes_dir_p) else 0
     print(f"daily 文件数: {daily}，notes 文件数: {notes}")
     # 异常检测：ID 重复
     inbox_txt = read(os.path.join(SYSTEM, "memory-inbox.md"))

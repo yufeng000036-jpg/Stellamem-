@@ -16,7 +16,8 @@ Stellamem — Compilable, auditable, local-first long-term memory for AI agents.
 ## 它解决什么问题
 
 - **给 AI 装消化系统**：每天的对话日记，自动编译成结构化长期记忆（偏好 / 决策 / 教训 / 项目），自动去重、路由、入库。
-- **解决记忆腐烂**：长期运行的 AI 记忆会越积越乱、自相矛盾。本系统用冲突日志 + 版本链，让记忆像代码库一样可治理。
+- **解决记忆腐烂**：长期运行的 AI 记忆会越积越乱、自相矛盾。本系统已具备**冲突日志、版本链、关系判断组件**（`judge.py` 支持 8 种关系判断）；
+  自动 Relation Engine 接入主流程仍在开发中（见 [ROADMAP.md](ROADMAP.md)），目前冲突裁决由人工确认。
 - **白盒透明**：一切记忆都是 markdown 文件，人能读、Git 能 diff、每次认知变化都有证据链。
 - **不绑定模型**：提取层是标准化的 Claim 抽取任务，换更强的模型，记忆质量更高。4B 是推荐起点，不是天花板。
 
@@ -99,7 +100,7 @@ python setup.py install
 | 当前默认 | Qwen3-4B Q5_K_M | 8GB 显存 | 约 7 秒 | 本地可跑，零成本 |
 | 轻量档 | Qwen3-1.7B Q5 | 4GB 显存 | 约 3 秒 | 低配设备，质量略降 |
 | 进阶档 | Qwen3-14B / 32B | 16–24GB 显存 | 视硬件 | 质量优先 |
-| 云端档 | GPT-4o / Claude / DeepSeek | API | 视网络 | 质量最高 |
+| 云端档 | GPT-4o / Claude / DeepSeek | API | 视网络 | 质量最高（API 鉴权适配开发中，暂需自行加 header） |
 
 上限不固定。模型越强，抽取越准、去重越干净、冲突裁决越可靠。
 整个架构、schema、路由逻辑都是模型无关的——换模型不用改记忆结构。
@@ -120,7 +121,7 @@ python setup.py install
 
 - 推荐：8GB 显存 + llama.cpp，跑 Qwen3-4B Q5_K_M。
 - 进阶：16GB 显存，可上更大模型。
-- 无 GPU：CPU 也能跑，速度慢 10 倍以上；或改用云端 API。
+- 无 GPU：CPU 也能跑，速度慢 10 倍以上；或改用本地 OpenAI 兼容服务（Ollama / LM Studio）。
 
 ---
 
@@ -143,10 +144,14 @@ python setup.py install
 ## FAQ
 
 **能接 Claude / GPT 吗？**
-能。提取层模型无关，只要模型能输出 JSON。
+目前**直接支持本地 OpenAI-compatible 模型服务**（llama.cpp / Ollama / LM Studio 等），
+本地跑零成本、零隐私风险。
+远程 API Provider（GPT / Claude / DeepSeek 等）**适配计划中**：当前 `extract.py` 未带
+`Authorization` 头，直连远程 API 会 401。想要远程跑，需要自行加鉴权头，或等官方适配。
 
 **记忆存在哪？会上传吗？**
-默认全本地 markdown 文件，Git 可 diff，不联网。只有你主动配置云端模型 API 时，编译所需内容才会发给对应服务商。
+默认全本地 markdown 文件，Git 可 diff，不联网。只有你主动配置远程模型 API 时，
+编译所需内容才会发给对应服务商（该能力见上一条，尚未内置）。
 
 **换更强的模型会更好吗？**
 会。模型越强，召回越高、误写越少。4B 是默认起点，不是上限。
@@ -155,7 +160,16 @@ python setup.py install
 markdown-first、可 diff、可回滚、白盒可审计，不是黑盒数据库。
 
 **支持哪些 Agent 框架？**
-当前支持 OpenClaw，其他框架适配器陆续增加。
+第一公民宿主是 **OpenClaw**（有 hooks / plugins / agent workspace 的环境），开箱即用。
+其他框架（Claude Code / Cursor / 自研 Agent）**核心编译器可以直接用**，只需自己实现两个薄适配层：
+
+| 组件 | 非 OpenClaw 用户需要做什么 |
+|------|--------------------------|
+| 编译侧 `compiler/` | **完全不用改**，框架无关。配好 `config.json` 即可跑 `extract.py` → `sleep_purify.py` → markdown 记忆。 |
+| 写入侧 | 自己写「对话结束 → 落盘 daily」的钩子，格式 `[HH:MM] role: content` → `daily/YYYY-MM-DD.md` |
+| 注入侧 | 在 system prompt 构建处读 `core/*.md` 拼进去，按关键词命中读 `long-term/` 和 `semantic/` |
+
+即：**不装 OpenClaw，也能用这份记忆编译器**（写入/注入自实现）。完整说明见 [INSTALL.md 第 6 节](INSTALL.md)。
 
 ---
 

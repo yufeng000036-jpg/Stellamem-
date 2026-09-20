@@ -16,7 +16,7 @@ Stellamem — Compilable, auditable, local-first long-term memory for AI agents.
 ## What it solves
 
 - **A digestive system for AI**: daily conversation logs are automatically compiled into structured long-term memory (preferences, decisions, lessons, projects), with deduplication, routing, and storage.
-- **Memory rot**: long-running AI memory degrades and contradicts itself. Stellamem uses a conflict log and version chain so memory is governed like a codebase.
+- **Memory rot**: long-running AI memory degrades and contradicts itself. Stellamem ships conflict logs, version chains, and relation-judgment components (`judge.py`, 8 relation types); automatic Relation Engine integration into the main flow is still in development (see [ROADMAP.md](ROADMAP.md)), so conflict resolution is human-confirmed for now.
 - **White-box transparency**: all memory is markdown. Humans can read it, Git can diff it, every cognitive change has an evidence chain.
 - **Model-agnostic**: the extraction layer is a standardized Claim extraction task. Swap in a stronger model, get higher quality memory. 4B is the recommended starting point, not the ceiling.
 
