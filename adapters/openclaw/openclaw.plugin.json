@@ -13,7 +13,21 @@
         "type": "boolean"
       },
       "coreDir": {
-        "type": "string"
+        "type": "string",
+        "description": "记忆库根目录（包含 core/ long-term/ semantic/）。留空则用安装时写入的路径。"
+      },
+      "maxInjectChars": {
+        "type": "number",
+        "description": "单个文件最大注入字符数，超出截断。默认 4000。"
+      },
+      "sensitiveFilesPolicy": {
+        "type": "string",
+        "enum": ["summary", "full"],
+        "description": "敏感档案（画像/数据画像/收藏）注入策略：summary=只注入前若干行（默认），full=整篇注入。"
+      },
+      "summaryLines": {
+        "type": "number",
+        "description": "summary 模式下注入的行数，默认 10。"
       }
     }
   }

@@ -57,7 +57,28 @@ config.example.json  配置模板
 
 ---
 
-## 快速开始
+## 快速开始（一键安装）
+
+```bash
+# 1. 环境自检（只读，不改任何文件）
+python setup.py check
+
+# 2. 干跑，看清会改什么
+python setup.py install --dry-run
+
+# 3. 真安装（幂等，重复跑安全）
+python setup.py install
+```
+
+装完后按 `setup-out/install-report.md` 的「下一步」操作（合并 openclaw.json 片段、配模型服务、重启）。
+
+> 把整个仓库丢给 AI，让它读 [AI_BOOTSTRAP.md](AI_BOOTSTRAP.md) 也能自动装。
+
+---
+
+## 手工安装（高级用法）
+
+不想用一键安装，也可以手动逐步来：
 
 1. 复制配置：`cp config.example.json config.json`，填你的路径和模型名。
 2. 建记忆结构：参考 `templates/` 建 `core / long-term / semantic`。

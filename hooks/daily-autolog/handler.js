@@ -2,13 +2,16 @@
 // A：command:new / command:reset → 写今天 daily
 // C：gateway:startup → 检查昨天 daily，缺失则补
 // 幂等：只写"时间晚于 daily 已覆盖最后时间"的新会话
-// 总结失败 → 降级为原始转录；时区按 UTC+8 换算本地日期
+// 总结失败 → 降级为原始转录；时区可配置（默认 UTC+8）
 //
-// ═══════════ 安装必读（3 个地方要改）═══════════
+// ═══════════ 安装必读（4 个地方要改）═══════════
 // 1. 改 AI_NAME 为你自己的 AI 名字（日记以谁的第一人称写）
 // 2. 改 SESSIONS_DIR 为你 OpenClaw 的会话目录（真实路径，
 //    形如 <openclaw状态目录>/agents/main/sessions）
 // 3. 改 DAILY_DIR 为你记忆根目录下的 daily 子目录
+// 4. 改 MODEL_URL 为你本地模型服务的 chat 接口地址
+//    （llama.cpp 默认 :8081，Ollama 用 :11434，LM Studio 用 :1234）
+//    也可用环境变量 STELLAMEM_MODEL_URL 覆盖，无需改文件。
 // ═══════════════════════════════════════════════════
 //
 // 实测确认的 OpenClaw hook-pack 事件（见 bundled/session-memory、boot-md）：
@@ -26,9 +29,13 @@ import { fileURLToPath } from "node:url";
 const AI_NAME = "你的AI名字"; // ← 日记的第一人称主体，改成你的 AI 名字
 const SESSIONS_DIR = "<YOUR_OPENCLAW_SESSIONS_DIR>"; // ← 例：C:/Users/你/.openclaw/agents/main/sessions
 const DAILY_DIR = "<YOUR_DAILY_DIR>"; // ← 例：C:/Users/你/<你的记忆根>/daily
+const TIMEZONE_OFFSET = "<YOUR_TZ_OFFSET>"; // ← UTC 偏移小时数，例："8"=北京，"-5"=纽约，"0"=伦敦
 // ═══════════════════════════════════════
 
-const MODEL_URL = "http://127.0.0.1:8081/v1/chat/completions";
+// 模型服务地址：优先环境变量 STELLAMEM_MODEL_URL，其次安装器写入的值。
+// 支持 llama.cpp(:8081) / Ollama(:11434) / LM Studio(:1234) 等任意 OpenAI 兼容端点。
+const MODEL_URL =
+  process.env.STELLAMEM_MODEL_URL || "<YOUR_MODEL_URL>";
 // 错误日志：写到 handler 自己目录下，不碰任何记忆文件
 const ERROR_LOG = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -46,18 +53,23 @@ function logError(msg, err) {
   } catch {}
 }
 
-// UTC 时间戳/字符串 → 本地（UTC+8）日期字符串 YYYY-MM-DD
+// 时区偏移（小时）：优先环境变量 STELLAMEM_TZ_OFFSET，其次安装器写入值。
+// 默认 8（Asia/Shanghai）。支持小数（如 5.5 = 印度）。
+const TZ_OFFSET = (() => {
+  const raw = process.env.STELLAMEM_TZ_OFFSET || TIMEZONE_OFFSET;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : 8;
+})();
+const TZ_MS = TZ_OFFSET * 3600 * 1000;
+
+// UTC 时间戳/字符串 → 本地日期字符串 YYYY-MM-DD
 function getLocalDateStr(t) {
-  return new Date(new Date(t).getTime() + 8 * 3600 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  return new Date(new Date(t).getTime() + TZ_MS).toISOString().slice(0, 10);
 }
 
 // UTC 时间戳/字符串 → 本地 HH:MM
 function getLocalHHMM(t) {
-  return new Date(new Date(t).getTime() + 8 * 3600 * 1000)
-    .toISOString()
-    .slice(11, 16);
+  return new Date(new Date(t).getTime() + TZ_MS).toISOString().slice(11, 16);
 }
 
 // 去掉 user 消息里的 untrusted metadata 块，只留真实对话文本

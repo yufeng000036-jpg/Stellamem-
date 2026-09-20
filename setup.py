@@ -143,6 +143,27 @@ def detect_ollama():
         return False
 
 
+def detect_tz_offset():
+    """探测本机 UTC 偏移（小时）。优先环境变量 STELLAMEM_TZ_OFFSET，
+    其次用本机时区；都失败则回退 8（Asia/Shanghai）。"""
+    env = os.environ.get("STELLAMEM_TZ_OFFSET")
+    if env:
+        try:
+            return float(env)
+        except ValueError:
+            pass
+    try:
+        from datetime import datetime
+        off = datetime.now().astimezone().utcoffset()
+        if off is not None:
+            hours = off.total_seconds() / 3600.0
+            # 整数则去小数点（8.0 → 8）
+            return int(hours) if hours == int(hours) else hours
+    except Exception:
+        pass
+    return 8
+
+
 def detect_model_service(url):
     """探测某个 OpenAI 兼容端点是否可用"""
     try:
@@ -286,7 +307,7 @@ def replace_placeholder(text, old, new):
     return text.replace(old, new), True
 
 
-def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_openclaw=False):
+def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_openclaw=False, tz_offset=None):
     section("Stellamem 一键安装" + ("（干跑）" if dry_run else ""))
 
     # ---- 1. 探测 ----
@@ -324,6 +345,11 @@ def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_ope
         except EOFError:
             pass
     info(f"AI 名字: {ai_name}")
+
+    # ---- 3b. 时区偏移（命令行参数 > 环境变量 TZ > 默认 8）----
+    if tz_offset is None:
+        tz_offset = detect_tz_offset()
+    info(f"时区偏移: UTC{'+' if float(tz_offset) >= 0 else ''}{tz_offset}")
 
     actions = []
 
@@ -374,6 +400,10 @@ def cmd_install(dry_run=False, yes=False, ai_name=None, mem_root=None, merge_ope
              f'const SESSIONS_DIR = "{sess.replace(chr(92), "/")}";' if sess else None),
             ('const DAILY_DIR = "<YOUR_DAILY_DIR>";',
              f'const DAILY_DIR = "{mem_root.replace(chr(92), "/")}/daily";'),
+            ('const TIMEZONE_OFFSET = "<YOUR_TZ_OFFSET>";',
+             f'const TIMEZONE_OFFSET = "{tz_offset}";'),
+            ('"<YOUR_MODEL_URL>"',
+             f'"{cfg_data["server_url"].rstrip(chr(47))}/v1/chat/completions"'),
         ])))
         actions.append(("replace", (os.path.join(adapter_dst, "index.js"), [
             ('const ROOT = "<YOUR_MEMORIES_PATH>";',
